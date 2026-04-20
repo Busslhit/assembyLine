@@ -1,26 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT_DIR=".openclaw/workspace/skills/assemblyLine"
-CMD="$*"
 
-# Handle Template Generation: /assemblyLine template[N]
-if [[ "$CMD" =~ template\[([0-9]+)\] ]]; then
-    LEN="${BASH_REMATCH[1]}"
-    TPL=""
-    for ((i=1; i<=LEN; i++)); do
-        TPL+="(model$i) + [\"prompt$i\" + [macro]]"
-        if [ $i -lt $LEN ]; then TPL+=" > "; fi
-    done
-    echo "Use this template for a $LEN-step chain:"
-    echo "/assemblyLine $TPL"
+# Changed extension from .conf to .txt
+CONFIG_FILE="$(dirname "$0")/../pass_ons.txt"
+INPUT_CHAIN="$*"
 
-# Handle Help
-elif [[ "$CMD" == "help" ]]; then
-    cat "$ROOT_DIR/README.md"
-    echo -e "\nAvailable Macros in pass_ons.conf:"
-    cat "$ROOT_DIR/pass_ons.conf"
+# Split by the '>' character
+IFS='>' read -r -a STATIONS <<< "$INPUT_CHAIN"
+PREV_OUTPUT=""
 
-# Execute the Chain
-else
-    bash "$ROOT_DIR/scripts/run-chain.sh" "$CMD"
-fi
+for station in "${STATIONS[@]}"; do
+    # Regex extraction for model, prompt, and macro
+    MODEL=$(echo "$station" | grep -oP '\(\K[^\)]+' || echo "llama3")
+    PROMPT=$(echo "$station" | grep -oP '\["\K[^"]+' || echo "")
+    PASS_KEY=$(echo "$station" | grep -oP '\[\K[^"\]]+(?=\])' | head -1 || echo "")
+
+    # Fetch macro from the .txt file
+    HIDDEN_INSTR=$(grep "^$PASS_KEY|" "$CONFIG_FILE" | cut -d'|' -f2- || echo "")
+
+    # Construct Context-Aware Prompt
+    FINAL_PROMPT="### AI ASSEMBLY LINE CONTEXT\n"
+    if [ -n "$PROMPT" ]; then FINAL_PROMPT+="PRIMARY GOAL: $PROMPT\n"; fi
+    if [ -n "$PREV_OUTPUT" ]; then FINAL_PROMPT+="\n### PREVIOUS MODEL OUTPUT:\n$PREV_OUTPUT\n"; fi
+    if [ -n "$HIDDEN_INSTR" ]; then FINAL_PROMPT+="\n### YOUR SPECIFIC TASK (REFINEMENT):\n$HIDDEN_INSTR\n"; fi
+
+    # Call Ollama
+    PREV_OUTPUT=$(echo -e "$FINAL_PROMPT" | ollama run "$MODEL")
+done
+
+# Final result JSON for OpenClaw
+printf '{"reply":"%s"}\n' "$(echo "$PREV_OUTPUT" | sed 's/"/\\"/g' | tr -d '\r')"
