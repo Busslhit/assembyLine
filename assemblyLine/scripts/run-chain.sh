@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
-CONFIG_FILE="$(dirname "$0")/../pass_ons.conf"
+
+# Changed extension from .conf to .txt
+CONFIG_FILE="$(dirname "$0")/../pass_ons.txt"
 INPUT_CHAIN="$*"
 
 # Split by the '>' character
@@ -12,10 +14,10 @@ for station in "${STATIONS[@]}"; do
     MODEL=$(echo "$station" | grep -oP '\(\K[^\)]+' || echo "llama3")
     PROMPT=$(echo "$station" | grep -oP '\["\K[^"]+' || echo "")
     PASS_KEY=$(echo "$station" | grep -oP '\[\K[^"\]]+(?=\])' | head -1 || echo "")
-    
-    # Fetch macro from config
+
+    # Fetch macro from the .txt file
     HIDDEN_INSTR=$(grep "^$PASS_KEY|" "$CONFIG_FILE" | cut -d'|' -f2- || echo "")
-    
+
     # Construct Context-Aware Prompt
     FINAL_PROMPT="### AI ASSEMBLY LINE CONTEXT\n"
     if [ -n "$PROMPT" ]; then FINAL_PROMPT+="PRIMARY GOAL: $PROMPT\n"; fi
