@@ -1,11 +1,11 @@
-name: assemblyLine
+name: assemblyline
 description: "Sequential chain of Ollama models with custom pass-on macros and dynamic templates."
 slash:
-  trigger: "/assemblyLine"
+  trigger: "/assemblyline"
   description: "Run a chain or generate a template."
   examples:
-    - "/assemblyLine template[3]"
-    - "/assemblyLine (llama3) + [\"Hello\" + [upscale]]"
+    - "/assemblyline template[3]"
+    - "/assemblyline (llama3) + [\"Hello\" + [upscale]]"
 disable-model-invocation: false
 requirements:
   - cli: ollama
